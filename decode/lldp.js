@@ -51,10 +51,12 @@ LLDP.prototype.decode = function (raw_packet, offset) {
                 this.chassisIDType = raw_packet[offset];
 
                 var addrType;
+                var incOffset = 2;
 
                 switch(this.chassisIDType) {
                     case 4:
                         addrType = LLDPConsts.MAC;
+                        incOffset = 1;
                         break;
                     case 5:
                         addrType = LLDPConsts.IPV4;
@@ -64,7 +66,7 @@ LLDP.prototype.decode = function (raw_packet, offset) {
                         break;
                 }
 
-                this.chassisID = this.parseAddr(addrType, raw_packet, offset + 1, tlvLength);
+                this.chassisID = this.parseAddr(addrType, raw_packet, offset + incOffset, tlvLength);
 
                 break;
 
@@ -137,9 +139,9 @@ LLDP.prototype.parseAddr = function(addrType, raw_packet, offset, tlvLength) {
         case LLDPConsts.MAC:
             return new EthernetAddr(raw_packet, offset);
         case LLDPConsts.IPV4:
-            return new IPV4Addr(raw_packet, offset);
+            return new IPV4Addr().decode(raw_packet, offset);
         case LLDPConsts.IPV6:
-            return new IPV6Addr(raw_packet, offset);
+            return new IPV6Addr().decode(raw_packet, offset);
         default:
             return raw_packet.slice(offset, offset + tlvLength - 1);
     }
