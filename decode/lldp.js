@@ -8,6 +8,20 @@ LLDPConsts = Object.freeze({
     IPV6: 3
 });
 
+LLDPSystemCapConsts =  Object.freeze({
+    OTHER: "Other",
+    REPEATER: "Repeater",
+    BRIDGE: "Bridge",
+    AP: "Ap",
+    ROUTER: "Router",
+    PHONE: "Phone",
+    DOCSIS: "Docsis",
+    STATION: "Station",
+    CVLAN: "CvLan",
+    SVLAN: "SvLan",
+    TPRELAY: "TpRelay"
+});
+
 function LLDP(emitter) {
 	this.emitter = emitter;
 	this.chassisID = undefined;
@@ -18,7 +32,8 @@ function LLDP(emitter) {
     this.portDescription = undefined;
     this.systemName = undefined;
     this.systemDescription = undefined;
-    this.systemCapabilities = undefined;
+    this.systemCapabilitiesSupported = undefined;
+    this.systemCapabilitiesEnabled = undefined;
     this.managementAddr = undefined;
 }
 
@@ -26,9 +41,7 @@ LLDP.prototype.decode = function (raw_packet, offset) {
     while (offset < raw_packet.length) {
         var tlvType = raw_packet[offset] >> 1;
         var tlvLength = (raw_packet.readUInt16BE(offset) & 0x1FF);
-
         offset += 2;
-
         switch (tlvType) {
             // Fim do pacote
             case 0: break;
@@ -77,22 +90,23 @@ LLDP.prototype.decode = function (raw_packet, offset) {
 
             // Descrição da porta
             case 4:
-                this.portDescription = undefined;
+                this.portDescription = raw_packet.toString('utf8', offset, offset + tlvLength);
                 break;
-
             // Nome do sistema
             case 5:
-                this.systemName = undefined;
+                this.systemName = raw_packet.toString('utf8', offset, offset + tlvLength);
                 break;
 
             // Descrição do sistema
             case 6:
-                this.systemDescription = undefined;
+                this.systemDescription = raw_packet.toString('utf8', offset, offset + tlvLength);
                 break;
 
             // Capacidades do sistema
             case 7:
-                this.systemCapabilities = undefined;
+                this.systemCapabilitiesSupported = this.parseSysCap(raw_packet.readUInt16BE(offset));
+                offset += 2;
+                this.systemCapabilitiesEnabled = this.parseSysCap(raw_packet.readUInt16BE(offset));
                 break;
 
             // Endereço de gerenciamento
@@ -130,5 +144,43 @@ LLDP.prototype.parseAddr = function(addrType, raw_packet, offset, tlvLength) {
             return raw_packet.slice(offset, offset + tlvLength - 1);
     }
 };
+
+LLDP.prototype.parseSysCap = function(sysCapType){
+    switch(sysCapType){
+        case 1:
+            return LLDPSystemCapConsts.OTHER;
+            break;
+        case 2:
+            return LLDPSystemCapConsts.REPEATER;
+            break;
+        case 4:
+            return LLDPSystemCapConsts.BRIDGE;
+            break;
+        case 8:
+            return LLDPSystemCapConsts.AP;
+            break;
+        case 16:
+            return LLDPSystemCapConsts.ROUTER;
+            break;
+        case 32:
+            return LLDPSystemCapConsts.PHONE;
+            break;
+        case 64:
+            return LLDPSystemCapConsts.DOCSIS;
+            break;
+        case 128:
+            return LLDPSystemCapConsts.STATION;
+            break;
+        case 256:
+            return LLDPSystemCapConsts.CVLAN;
+            break;
+        case 512:
+            return LLDPSystemCapConsts.SVLAN;
+            break;
+        case 1024:
+            return LLDPSystemCapConsts.TPRELAY;
+            break;
+    }
+}
 
 module.exports = LLDP;
