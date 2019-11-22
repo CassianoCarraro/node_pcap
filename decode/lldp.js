@@ -8,6 +8,12 @@ LLDPConsts = Object.freeze({
     IPV6: 3
 });
 
+LLDPSubTypeMem= Object.freeze({
+    MGM: "mgm",
+    IPV4: "IPv4",
+    IPV6: "IPv6",
+});
+
 LLDPSystemCapConsts =  Object.freeze({
     OTHER: "Other",
     REPEATER: "Repeater",
@@ -22,6 +28,12 @@ LLDPSystemCapConsts =  Object.freeze({
     TPRELAY: "TpRelay"
 });
 
+LLDPIntSubType = Object.freeze({
+    INDEX: "ifIndex",
+    PORT: "System Port Number",
+    UKN: "Unknown"
+})
+
 function LLDP(emitter) {
 	this.emitter = emitter;
 	this.chassisID = undefined;
@@ -34,7 +46,10 @@ function LLDP(emitter) {
     this.systemDescription = undefined;
     this.systemCapabilitiesSupported = undefined;
     this.systemCapabilitiesEnabled = undefined;
-    this.managementAddr = undefined;
+    this.addrStringLength = undefined;
+    this.addrSubType = undefined;
+    this.mgmAddr = undefined;
+    this.intSubType = undefined;
 }
 
 LLDP.prototype.decode = function (raw_packet, offset) {
@@ -107,13 +122,46 @@ LLDP.prototype.decode = function (raw_packet, offset) {
             // Capacidades do sistema
             case 7:
                 this.systemCapabilitiesSupported = this.parseSysCap(raw_packet.readUInt16BE(offset));
-                offset += 2;
-                this.systemCapabilitiesEnabled = this.parseSysCap(raw_packet.readUInt16BE(offset));
+                this.systemCapabilitiesEnabled = this.parseSysCap(raw_packet.readUInt16BE(offset+2));
                 break;
 
             // Endereço de gerenciamento
             case 8:
-                this.managementAddr = undefined;
+                var memOffset = 1;
+
+                this.addrStringLength = raw_packet[offset];
+
+                var subType = raw_packet[offset + memOffset];
+                memOffset++;
+                switch(subType){
+                    case 0:
+                        this.addrSubType = LLDPSubTypeMem.MGM;
+                        this.mgmAddr = raw_packet.slice(offset + memOffset, offset + memOffset + this.addrStringLength - 1);
+                        break;
+                    case 1:
+                        this.addrSubType = LLDPSubTypeMem.IPV4;
+                        this.mgmAddr = new IPV4Addr().decode(raw_packet, offset + memOffset);
+                        break;
+                    case 2:
+                        this.addrSubType = LLDPSubTypeMem.IPV6;
+                        this.mgmAddr = new IPV6Addr().decode(raw_packet, offset + memOffset);
+                        break;
+                }
+                memOffset += 4;
+
+                var intSubType = raw_packet[offset + memOffset];
+                switch(intSubType){
+                    case 1:
+                        this.intSubType = LLDPIntSubType.UKN;
+                        break;
+                    case 2:
+                        this.intSubType = LLDPSubTypeMem.INDEX;
+                        break;
+                    case 3:
+                        this.intSubType = LLDPIntSubType.PORT;
+                        break;
+                }
+                // console.log(this.mgmAddr);
                 break;
         }
 
